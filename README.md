@@ -10,50 +10,12 @@ Comments and pull requests are welcome and encouraged, for both new features imp
 fixes or other improvements.
 
 Table of contents:
-- [resolver](#resolver) 
 - [nameserver](#nameserver)
+- [resolver](#resolver)
 - [network](#Network) 
 - [future plans](<#Future-plans>)
 - [dev mode](<#Dev-mode>)
 - [notes](<#Notes>)
-
-## Resolver
-A resolver is queried by DNS clients to resolve a name on their behalf. Results are cached for faster lookups
-in the future. Different resolver types exist. The so-called _stub resolver_ simply forwards the request to 
-another DNS server/resolver. _Recursive resolvers_ autonomously resolve the query descending the DNS hierarchy, 
-starting from the Internet root servers.  
-
-The resolver in this project is a recursive one. It can be used from any DNS client to resolve any type of 
-query. As mentioned before, results are cached for faster lookups in the future. Similarly, nameservers
-queried during lookups are cached together with the zone over which they are authoritative.
-
-The resolver is configured via a configuration file, which path must be provided as the first argument
-of the executable. Among other parameters, tracing of lookups can be controlled via the `trace_conf`
-field (full tracing it's expensive, turn it on only when needed). If tracing is enabled, after every 
-lookup the full trace is printed on std_out. The produced trace reports boht queried nameserver and their 
-responses and cache lookups. 
-
-Example, querying the resolver (local instance) for _'google.it'_ with:
-
-```sh
-dig +retry=0 -p 4000 @127.0.0.1 portal.example.com.
-```
-
-Produces the following trace:
-
-![trace of lookup](assets/docs/google.png "Lookup trace")
-
-### Compile and run the binary
-
-Compile the resolver binary (local architecture):
-```sh
-cargo build --release --bin resolver
-```
-The executable can be found at _/<project-root>/target/release/resolver_, run it
-providing the path of the configuration file as the first argument:
-```sh
-/path/to/resolver/binary /etc/conf/resolver.conf.json
-```
 
 ## Nameserver
 
@@ -146,6 +108,44 @@ The executable can be found at _/<project-root>/target/release/nameserver_, run 
 passing the path of the configuration file as the first argument:
 ```sh
 /path/to/nameserver/binary /etc/conf/nameserver.conf.json
+```
+
+## Resolver
+A resolver is queried by DNS clients to resolve a name on their behalf. Results are cached for faster lookups
+in the future. Different resolver types exist. The so-called _stub resolver_ simply forwards the request to
+another DNS server/resolver. _Recursive resolvers_ autonomously resolve the query descending the DNS hierarchy,
+starting from the Internet root servers.
+
+The resolver in this project is a recursive one. It can be used from any DNS client to resolve any type of
+query. As mentioned before, results are cached for faster lookups in the future. Similarly, nameservers
+queried during lookups are cached together with the zone over which they are authoritative.
+
+The resolver is configured via a configuration file, which path must be provided as the first argument
+of the executable. Among other parameters, tracing of lookups can be controlled via the `trace_conf`
+field (full tracing it's expensive, turn it on only when needed). If tracing is enabled, after every
+lookup the full trace is printed on std_out. The produced trace reports boht queried nameserver and their
+responses and cache lookups.
+
+Example, querying the resolver (local instance) for _'google.it'_ with:
+
+```sh
+dig +retry=0 -p 4000 @127.0.0.1 portal.example.com.
+```
+
+Produces the following trace:
+
+![trace of lookup](assets/docs/google.png "Lookup trace")
+
+### Compile and run the binary
+
+Compile the resolver binary (local architecture):
+```sh
+cargo build --release --bin resolver
+```
+The executable can be found at _/<project-root>/target/release/resolver_, run it
+providing the path of the configuration file as the first argument:
+```sh
+/path/to/resolver/binary /etc/conf/resolver.conf.json
 ```
 
 ## Network 
