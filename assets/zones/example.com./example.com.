@@ -45,5 +45,5 @@ hinfo-test.example.com.                 HINFO   AMD     Linux
 
 ; Include other files. These files are included in this zone and are NOT
 ; subzones. It's optional to specify a new origin for the included file.
-$INCLUDE assets/example.com./example.com._include_1     metrics.example.com.
-$INCLUDE assets/example.com./example.com._include_2
+$INCLUDE assets/zones/example.com./example.com._include_1     metrics.example.com.
+$INCLUDE assets/zones/example.com./example.com._include_2

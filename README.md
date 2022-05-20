@@ -76,8 +76,8 @@ ptr-test.example.com.                   PTR     another-domain.com.
 hinfo-test.example.com.                 HINFO   AMD     Linux
 
 ; Include other files. These files are included in this zone and are NOT subzones.
-$INCLUDE assets/example.com./example.com._include_1     metrics.example.com.
-$INCLUDE assets/example.com./example.com._include_2
+$INCLUDE assets/zones/example.com./example.com._include_1     metrics.example.com.
+$INCLUDE assets/zones/example.com./example.com._include_2
 ```
 
 Some basic validations are made: 
@@ -96,7 +96,7 @@ If debug log level is enabled, records are printed at start-up, to validate and 
 
 Example:
 
-![loaded zone records](assets/docs/zone_records.png "Zones debug")
+![loaded zone records](assets/images/zone_records.png "Zones debug")
 
 ### Compile and run the binary
 
@@ -134,7 +134,7 @@ dig +retry=0 -p 4000 @127.0.0.1 portal.example.com.
 
 Produces the following trace:
 
-![trace of lookup](assets/docs/google.png "Lookup trace")
+![trace of lookup](assets/images/google.png "Lookup trace")
 
 ### Compile and run the binary
 

@@ -15,18 +15,18 @@
   },
   "zone": {
     "zone": "example.com.",
-    "file": "assets/example.com./example.com.",
+    "file": "assets/zones/example.com./example.com.",
     "starting_ttl": 1000,
     "sub_zones": [
       {
         "zone": "a.example.com.",
-        "file": "assets/example.com./a.example.com.",
+        "file": "assets/zones/example.com./a.example.com.",
         "starting_ttl": 500,
         "min_ttl": 60
       },
       {
         "zone": "b.example.com.",
-        "file": "assets/example.com./b.example.com.",
+        "file": "assets/zones/example.com./b.example.com.",
         "starting_ttl": 1000,
         "min_ttl": 150
       }
