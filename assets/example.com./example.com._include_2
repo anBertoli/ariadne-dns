@@ -1,0 +1,11 @@
+
+;;;;;;;;;;;; Included file for zone "example.com." ;;;;;;;;;;;;
+
+db.example.com.                              CNAME   db1.example.com.
+
+db1.example.com.                             A       130.0.0.1
+db1.example.com.                             A       130.0.0.2
+db2.example.com.                             A       130.0.0.3
+db2.example.com.                             A       130.0.0.4
+db3.example.com.                             A       130.0.0.5
+db3.example.com.                             A       130.0.0.6

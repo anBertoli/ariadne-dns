@@ -1,0 +1,32 @@
+{
+  "log_level": "Debug",
+  "udp_server": {
+    "address": "127.0.0.1",
+    "port": 4001,
+    "write_timeout": 2,
+    "threads": 16
+  },
+  "tcp_server": {
+    "address": "127.0.0.1",
+    "port": 4001,
+    "read_timeout": 2,
+    "write_timeout": 2,
+    "threads": 8
+  },
+  "resolver": {
+    "max_ns_queried": 5,
+    "max_ns_retries": 3,
+    "max_cname_redir": 10,
+    "read_timeout": 2,
+    "write_timeout": 2,
+    "cache_conf": {
+      "clean_period": 60,
+      "entries_cleaned": 1000
+    },
+    "trace_conf": {
+      "silent": false,
+      "verbose": false,
+      "color": true
+    }
+  }
+}

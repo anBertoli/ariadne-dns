@@ -1,0 +1,6 @@
+
+;;;;;;;;;;;; Included file for zone "example.com." ;;;;;;;;;;;;
+
+@                               10000        A       140.0.0.1
+                                15000        A       140.0.0.2
+admin.metrics.example.com.                   A       140.0.0.3

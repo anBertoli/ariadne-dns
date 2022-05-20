@@ -1,0 +1,49 @@
+
+;;;;;;;;;;;; Zone file for "example.com." ;;;;;;;;;;;;
+
+; The starting SOA is mandatory.
+example.com. IN 123 SOA ns.example.com. andrea.admin. (
+        20       ;SERIAL
+        7200     ;REFRESH
+        600      ;RETRY
+        3600000  ;EXPIRE
+        60       ;MINIMUM
+)
+
+; Setup nameservers for "example.com".
+example.com.      IN        15000       NS      ns1.example.it.
+example.com.      IN        15000       NS      ns2.example.it.
+ns1.example.com.                        A       127.0.0.1
+ns2.example.com.            10000       A       127.0.0.2
+
+; Setup records for an application/service.
+portal.example.com.                     A       194.45.65.31
+portal.example.com.                     A       194.45.65.32
+dashboard.example.com.                  CNAME   portal.example.com.
+www.dashboard.example.com.              CNAME   portal.example.com.
+www.portal.example.com.                 CNAME   portal.example.com.
+
+
+; Setup records for another application/service.
+$ORIGIN api.example.com.
+@                           35000       A       127.0.0.3
+                                        A       127.0.0.4
+www                                     CNAME   @
+
+; Setup records for an administrative portal.
+$ORIGIN admin.example.com.
+                                        A       127.0.0.5
+                            25000       A       127.0.0.6
+www.admin.example.com.                  CNAME   @
+
+; Some examples of other supported records.
+mx-test.example.com.                    MX      1      mail.example.com.
+txt-test.example.com.                   TXT     "random texts" "infos" data
+ptr-test.example.com.                   PTR     another-domain.com.
+hinfo-test.example.com.                 HINFO   AMD     Linux
+
+
+; Include other files. These files are included in this zone and are NOT
+; subzones. It's optional to specify a new origin for the included file.
+$INCLUDE assets/example.com./example.com._include_1     metrics.example.com.
+$INCLUDE assets/example.com./example.com._include_2

@@ -1,0 +1,17 @@
+
+;;;;;;;;;;;; Zone file for subzone "a.example.com." ;;;;;;;;;;;;
+
+; external NS, no need of glue records
+a.example.com.                   NS      ns.external.com.
+
+; NS in auth zone (not sub zone) no need of glue records
+a.example.com.                   NS      ns3.example.com.
+
+; NS in this sub zone we need glue records (in this subzone)
+a.example.com.        10000      NS      ns.a.example.com.
+ns.a.example.com.                A       145.0.0.1
+
+; NS in other sub zone we need glue records (from that subzone)
+a.example.com.        10000      NS      ns-a.b.example.com.
+
+
