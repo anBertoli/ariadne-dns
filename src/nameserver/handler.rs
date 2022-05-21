@@ -1,5 +1,6 @@
 use crate::nameserver::zones::*;
 use crate::shared::net::*;
+use crate::shared::dns::Question;
 use crate::shared::{dns, log};
 
 /// The nameserver handler able to serve dns requests via its [`DnsHandler`] implementation.
@@ -34,13 +35,15 @@ fn handle_dns_request<R: DnsRead, W: DnsWrite>(mut req: R, resp: W, zones: &Mana
             return;
         }
     };
-    if let Err(err) = validate_dns_request(&request) {
-        log::warn!("[{}] Response malformed: {}.", request.id(), err);
-        handle_err(resp, &request, dns::RespCode::FormErr);
-        return;
-    }
+    let dns::Question { node, record_type: t, .. } = match validate_dns_request(&request) {
+        Ok(question) => question,
+        Err(err) =>{
+            log::warn!("[{}] Response malformed: {}.", request.id(), err);
+            handle_err(resp, &request, dns::RespCode::FormErr);
+            return;
+        }
+    };
 
-    let dns::Question { node, record_type: t, .. } = &request.questions[0];
     log::info!(
         "[{}] Start handling request: node '{}', type {:?}",
         request.id(),
@@ -262,12 +265,9 @@ fn resp_header_from_req_header(req_header: &dns::Header, resp_code: dns::RespCod
 }
 
 // Validate a client dns request against some minimal requirements.
-fn validate_dns_request(dns_req: &dns::Message) -> Result<(), String> {
+fn validate_dns_request(dns_req: &dns::Message) -> Result<&Question, String> {
     if !dns_req.header.is_request() {
         return Err(format!("resp flag set in query"));
-    }
-    if dns_req.header.questions_count != 1 {
-        return Err(format!("invalid # of questions: {:?}", dns_req.header.questions_count));
     }
     if dns_req.header.answers_count != 0 {
         return Err(format!("invalid # of answers: {:?}", dns_req.header.answers_count));
@@ -278,5 +278,9 @@ fn validate_dns_request(dns_req: &dns::Message) -> Result<(), String> {
             dns_req.header.authorities_count
         ));
     }
-    Ok(())
+
+    match dns_req.questions.as_slice() {
+        [question] => Ok(question),
+        _ => Err(format!("invalid # of questions: {:?}", dns_req.header.questions_count))
+    }
 }
