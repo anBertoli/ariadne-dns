@@ -1,18 +1,18 @@
 
 # Ariadne DNS
 
-_Ariadne DNS_ it's a compact Rust implementation of a recursive DNS resolver and DNS nameserver, 
+_Ariadne DNS_ it's a compact Rust implementation of a recursive DNS resolver and DNS nameserver,
 implementing core RFCs 1034 and 1035. Two separate binaries are present for the two services.
 
-The project is not (still) intended to be used in production environments, beside testing 
-environments. Several RFCs should still be implemented and more testing should be performed. 
-Comments and pull requests are welcome and encouraged, for both new features implementations,
+The project is not (yet) intended to be used in production environments, beside testing
+environments. Several RFCs should still be implemented and more testing should be performed.
+Comments and pull requests are welcome and encouraged, for either new features implementations,
 fixes or other improvements.
 
 Table of contents:
 - [nameserver](#nameserver)
 - [resolver](#resolver)
-- [network](#Network) 
+- [network](#Network)
 - [future plans](<#Future-plans>)
 - [dev mode](<#Dev-mode>)
 - [notes](<#Notes>)
@@ -20,19 +20,19 @@ Table of contents:
 ## Nameserver
 
 A nameserver is queried by DNS clients to retrieve records included in zones on which it is authoritative.
-The nameserver authoritative zones (e.g. _'example.com'_) are the parts of the DNS hierarchy directly managed by 
-the server. These zones could contain sub zones (e.g. _'app.example.com'_ or _'dashboard.example.com'_). Sub zones
-are managed by other nameservers. The _'example.com'_ server is not authoritative over its sub zones.
+The nameserver authoritative zones (e.g. `example.com`) are the parts of the DNS hierarchy directly managed by
+the server. These zones could contain sub zones (e.g. `app.example.com` or `dashboard.example.com`). Sub zones
+are managed by other nameservers. The `example.com` server is not authoritative over its sub zones.
 
-The _'example.com'_ nameserver delegates to sub zone nameservers queries related to DNS nodes contained in those
-sub zones (e.g. _'asset.app.example.com'_). In the same way the upper zone (e.g. _'.com'_) nameservers contain 
+The `example.com` nameserver delegates to sub zone nameservers queries related to DNS nodes contained in those
+sub zones (e.g. `asset.app.example.com`). In the same way the upper zone (e.g. `.com`) nameservers contain
 records about our nameservers, as non-authoritative data.
 
-The nameserver is configured via a configuration file, which path must be provided as the first argument of the
+The nameserver is configured via a configuration file, whose path must be provided as the first argument of the
 executable. Zone files are loaded at server start-up. These files follow the usual zone files syntax, as showed
 in the example below (more examples at [_assets/example.com._](./assets/example.com.)).
 
-```
+```bind
 ;;;;;;;;;;;; Zone file for "example.com." ;;;;;;;;;;;;
 
 ; The starting SOA is mandatory.
@@ -80,7 +80,7 @@ $INCLUDE assets/zones/example.com./example.com._include_1     metrics.example.co
 $INCLUDE assets/zones/example.com./example.com._include_2
 ```
 
-Some basic validations are made: 
+Some basic validations are made:
 
 - For authoritative records:
   - NS records must be present (SOA record is already checked during parsing),
@@ -89,7 +89,7 @@ Some basic validations are made:
 - For sub zones records:
   - only NS and A records can be present in subzones, NS records must be at top node
   - NS records: if the nameserver is contained in any subzone the sub zone must have glue records for it
-  - A records: should provide the address of one of the mentioned nameservers. 
+  - A records: should provide the address of one of the mentioned nameservers.
 
 Currently, the nameserver in this project supports only one auth zone (it will be extended in the future).
 If debug log level is enabled, records are printed at start-up, to validate and debug issues easily.
@@ -104,7 +104,8 @@ Compile the resolver binary (local architecture):
 ```sh
 cargo build --release --bin nameserver
 ```
-The executable can be found at _/<project-root>/target/release/nameserver_, run it
+
+The executable can be found at `/<project-root>/target/release/nameserver`, run it
 passing the path of the configuration file as the first argument:
 ```sh
 /path/to/nameserver/binary /etc/conf/nameserver.conf.json
@@ -120,13 +121,13 @@ The resolver in this project is a recursive one. It can be used from any DNS cli
 query. As mentioned before, results are cached for faster lookups in the future. Similarly, nameservers
 queried during lookups are cached together with the zone over which they are authoritative.
 
-The resolver is configured via a configuration file, which path must be provided as the first argument
+The resolver is configured via a configuration file, whose path must be provided as the first argument
 of the executable. Among other parameters, tracing of lookups can be controlled via the `trace_conf`
 field (full tracing it's expensive, turn it on only when needed). If tracing is enabled, after every
-lookup the full trace is printed on std_out. The produced trace reports boht queried nameserver and their
+lookup the full trace is printed on std_out. The produced trace reports both queried nameserver and their
 responses and cache lookups.
 
-Example, querying the resolver (local instance) for _'google.it'_ with:
+Example, querying the resolver (local instance) for `google.it` with:
 
 ```sh
 dig +retry=0 -p 4000 @127.0.0.1 portal.example.com.
@@ -142,13 +143,14 @@ Compile the resolver binary (local architecture):
 ```sh
 cargo build --release --bin resolver
 ```
-The executable can be found at _/<project-root>/target/release/resolver_, run it
+
+The executable can be found at `/<project-root>/target/release/resolver`, run it
 providing the path of the configuration file as the first argument:
 ```sh
 /path/to/resolver/binary /etc/conf/resolver.conf.json
 ```
 
-## Network 
+## Network
 
 The resolver and the nameserver support both UDP and TCP transports, as expected from DNS implementations.
 In other words, both the binaries spin up two servers when executed. The two servers are independently
@@ -156,19 +158,19 @@ configurable.
 
 Currently, DNS request are handled with a thread pool. Incoming requests are queued in dedicated queue and as
 soon as a thread is not busy, a request is dequeued and processed. Next versions of this project will implement
-more efficient servers, via async Rust (feel free to contribute). 
+more efficient servers, via async Rust (feel free to contribute).
 
 ## Future plans
 
 Implemented RFCs:
-- _RFC 1034_
-- _RFC 1035_
+- [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034)
+- [RFC 1035](https://datatracker.ietf.org/doc/html/rfc1034)
 
-Some important features from other RFCs are still missing: eDNS, DNSSEC, and others. Contact me if you want to 
-contribute on these. Some other vital things are missing, in particular: complete codebase testing, async Rust 
+Some important features from other RFCs are still missing: eDNS, DNSSEC, and others. Contact me if you want to
+contribute on these. Some other vital things are missing, in particular: complete codebase testing, async Rust
 in server implementations, better DNS cache implementation.
 
-## Dev mode 
+## Dev mode
 
 ### Live reload
 
@@ -184,14 +186,14 @@ To run binaries and live reload them:
 cargo watch -s "cargo run --bin <resolver|nameserver> conf/<resolver|nameserver>.conf.json"
 ```
 
-The RUSTFLAGS can be used to disable compiler warnings:
+The `RUSTFLAGS` can be used to disable compiler warnings:
 ```sh
 RUSTFLAGS="-A warnings" cargo watch
 ```
 
 ### Generate and save packets in files
 
-In one terminal start _netcat_ to listen on one port and save the input on a file. Use _dig_ to send a request to
+In one terminal start `netcat` to listen on one port and save the input on a file. Use `dig` to send a request to
 that port. The generated file will have the binary content of the DNS request.
 ```sh
 # Terminal 1
@@ -202,18 +204,18 @@ nc -u -l 1053 > tmp/query_packet_bin.txt
 dig +retry=0 -p 1053 @127.0.0.1 +noedns google.com
 ```
 
-To obtain and save the response of the previous request use _netcat_ again. Read the request from the file, 
+To obtain and save the response of the previous request use `netcat` again. Read the request from the file,
 redirect it to a nameserver of your choice and save the response to another file.
 ```sh
 # 198.41.0.4 is a root nameserver
 nc -u 198.41.0.4 53 < tmp/query_packet_bin.txt > tmp/response_packet_bin.txt
 ```
 
-That's the binary content. To produce the more useful hex representation use _hexdump_.
+That's the binary content. To produce the more useful hex representation use `hexdump`.
 ```sh
 hexdump -C tmp/query_packet_bin.txt > tmp/query_packet_hex.txt
 hexdump -C tmp/response_packet_bin.txt > tmp/response_packet_hex.txt
-# Output: 
+# Output:
 # 00000000  86 2a 81 80 00 01 00 01  00 00 00 00 06 67 6f 6f  |.*...........goo|
 # 00000010  67 6c 65 03 63 6f 6d 00  00 01 00 01 c0 0c 00 01  |gle.com.........|
 # ...
