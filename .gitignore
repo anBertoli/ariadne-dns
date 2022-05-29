@@ -3,3 +3,4 @@ Cargo.lock
 .idea/
 /tmp
 conf/*.dev.json
+*/.DS_Store
