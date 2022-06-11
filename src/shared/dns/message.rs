@@ -1,4 +1,5 @@
 use crate::shared::buffer::*;
+use crate::shared::dns;
 use crate::shared::dns::errors::*;
 use crate::shared::dns::header::*;
 use crate::shared::dns::questions::*;
@@ -113,6 +114,93 @@ impl Message {
             }
         }
 
+        Ok(buffer.into_vec())
+    }
+
+    /// Encode a dns [`Message`] to raw bytes, returning a bytes vector. The message
+    /// is truncated before reaching [`MAX_UDP_LEN`] bytes of length (512 bytes). In
+    /// this case the header is modified appropriately.
+    pub fn encode_to_bytes_trunc(&self) -> Result<Vec<u8>, MessageErr> {
+        let mut buffer = BitsBuf::new();
+        buffer.write_bytes(&[0; 12]);
+        let mut header = dns::Header {
+            questions_count: 0,
+            answers_count: 0,
+            authorities_count: 0,
+            additionals_count: 0,
+            ..self.header.clone()
+        };
+
+        for i in 0..self.header.questions_count as usize {
+            let w_pos = buffer.write_pos();
+            match self.questions[i].encode_to_buf(&mut buffer) {
+                Err(err) => return Err(MessageErr::QuestionErr(i, err)),
+                Ok(v) => v,
+            };
+            if buffer.write_pos() > MAX_UDP_LEN {
+                buffer.set_write_pos(0);
+                header.truncated = true;
+                header.encode_to_buf(&mut buffer);
+                buffer.truncate(w_pos);
+                return Ok(buffer.into_vec());
+            } else {
+                header.questions_count += 1;
+            }
+        }
+
+        for i in 0..self.header.answers_count as usize {
+            let w_pos = buffer.write_pos();
+            match self.answers[i].encode_to_buf(&mut buffer) {
+                Err(err) => return Err(MessageErr::AnswerErr(i, err)),
+                Ok(v) => v,
+            };
+            if buffer.write_pos() > MAX_UDP_LEN {
+                buffer.set_write_pos(0);
+                header.truncated = true;
+                header.encode_to_buf(&mut buffer);
+                buffer.truncate(w_pos);
+                return Ok(buffer.into_vec());
+            } else {
+                header.answers_count += 1;
+            }
+        }
+
+        for i in 0..self.header.authorities_count as usize {
+            let w_pos = buffer.write_pos();
+            match self.authorities[i].encode_to_buf(&mut buffer) {
+                Err(err) => return Err(MessageErr::AuthorityErr(i, err)),
+                Ok(v) => v,
+            }
+            if buffer.write_pos() > MAX_UDP_LEN {
+                buffer.set_write_pos(0);
+                header.truncated = true;
+                header.encode_to_buf(&mut buffer);
+                buffer.truncate(w_pos);
+                return Ok(buffer.into_vec());
+            } else {
+                header.authorities_count += 1;
+            }
+        }
+
+        for i in 0..self.header.additionals_count as usize {
+            let w_pos = buffer.write_pos();
+            match self.additionals[i].encode_to_buf(&mut buffer) {
+                Err(err) => return Err(MessageErr::AdditionalErr(i, err)),
+                Ok(v) => v,
+            };
+            if buffer.write_pos() > MAX_UDP_LEN {
+                buffer.set_write_pos(0);
+                header.truncated = true;
+                header.encode_to_buf(&mut buffer);
+                buffer.truncate(w_pos);
+                return Ok(buffer.into_vec());
+            } else {
+                header.additionals_count += 1;
+            }
+        }
+
+        buffer.set_write_pos(0);
+        header.encode_to_buf(&mut buffer);
         Ok(buffer.into_vec())
     }
 }
