@@ -514,7 +514,7 @@ fn decode_txt_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Vec<String>
     loop {
         let pos = buffer.read_pos();
         let len = buffer.read_u8().ok_or(ParsingErr::BytesEnd)? as u16;
-        buffer.set_read_pos(pos - 1).unwrap();
+        buffer.set_read_pos(pos - 1);
         if read + len + 1 > data_len {
             return Err(ParsingErr::DataLenMismatch);
         }
