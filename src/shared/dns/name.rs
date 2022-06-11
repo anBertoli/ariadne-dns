@@ -37,7 +37,7 @@ impl Name {
     /// Creates a [`Name`] parsing its binary representation (a series of labels,
     /// divided by a length byte). There's a max number of jumps allowed (for
     /// security reasons).
-    pub fn from_bytes(buffer: &mut BitsBuffer) -> Result<Self, NameErr> {
+    pub fn from_bytes(buffer: &mut BitsBuf) -> Result<Self, NameErr> {
         let mut name_bytes: Vec<u8> = Vec::with_capacity(100);
         let mut pos_after_jump: usize = 0;
         let mut n_jumps: u16 = 0;

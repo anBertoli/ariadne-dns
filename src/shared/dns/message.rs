@@ -4,6 +4,8 @@ use crate::shared::dns::header::*;
 use crate::shared::dns::questions::*;
 use crate::shared::dns::records::*;
 
+const MAX_UDP_LEN: usize = 512;
+
 /// Represents a complete dns message. Contains the [`Header`], which fields
 /// must be concordant with the [`Question`]s and [`Record`]s carried in the other
 /// message fields ().
@@ -22,7 +24,7 @@ impl Message {
     /// types still cause its record/question bytes to be consumed. In general we
     /// want to make sure no unsupported features enters or exits the system.
     pub fn decode_from_bytes(bytes: &[u8]) -> Result<Message, MessageErr> {
-        let mut buffer = BitsBuffer::from_raw_bytes(&bytes);
+        let mut buffer = BitsBuf::from_raw_bytes(&bytes);
 
         let header = match Header::decode_from_buf(&mut buffer) {
             Err(err) => return Err(MessageErr::HeaderErr(err)),
@@ -83,7 +85,7 @@ impl Message {
     /// function panics if some unsupported class or types are provided (to
     /// maintain invariants about supported features).
     pub fn encode_to_bytes(&self) -> Result<Vec<u8>, MessageErr> {
-        let mut buffer = BitsBuffer::new();
+        let mut buffer = BitsBuf::new();
         self.header.encode_to_buf(&mut buffer);
 
         for i in 0..self.header.questions_count as usize {

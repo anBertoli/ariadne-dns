@@ -4,7 +4,7 @@ use std::str;
 
 /// Decode a character string, reading the bytes from the provided buffer.
 /// Both the string length and non-UTF-8 values are checked.
-pub fn decode_character_string(buffer: &mut BitsBuffer) -> Result<String, ParsingErr> {
+pub fn decode_character_string(buffer: &mut BitsBuf) -> Result<String, ParsingErr> {
     let len_byte = check_end(buffer.read_u8())?;
     let str_bytes = check_end(buffer.read_bytes_vec(len_byte as usize))?;
     if str_bytes.len() > 255 {

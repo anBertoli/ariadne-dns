@@ -1,22 +1,22 @@
 #[derive(Debug)]
-pub struct BitsBuffer {
+pub struct BitsBuf {
     buf: Vec<u8>,
     last: usize,
     w_pos: usize,
     r_pos: usize,
 }
 
-impl Default for BitsBuffer {
+impl Default for BitsBuf {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BitsBuffer {
+impl BitsBuf {
     /// Builds a new empty [BitsBuffer]. Write ops append data to the end
     /// of the internal buffer and reads start form the beginning.
     pub fn new() -> Self {
-        BitsBuffer {
+        BitsBuf {
             buf: vec![],
             last: 0,
             w_pos: 0,
@@ -27,7 +27,7 @@ impl BitsBuffer {
     /// Builds a [BitsBuffer] from a bytes slice. Subsequent write ops
     /// append to the buffer while reads start form the beginning.
     pub fn from_raw_bytes(bytes: &[u8]) -> Self {
-        BitsBuffer {
+        BitsBuf {
             buf: bytes.to_owned(),
             last: bytes.len() * 8,
             w_pos: bytes.len() * 8,
@@ -35,7 +35,33 @@ impl BitsBuffer {
         }
     }
 
-    /// Consumes the buffer and returns the inner bytes as a Vec.
+    /// Shortens the bits buffer, keeping the first len bits and dropping
+    /// the rest. If len is >= than the buffer length, this has no effect.
+    pub fn truncate(&mut self, len: usize) {
+        if len >= self.last {
+            return;
+        }
+
+        let last_byte = (len + 7) / 8;
+        self.buf.truncate(last_byte);
+        if len % 8 != 0 {
+            let bits_to_discard = 8 - (len % 8);
+            let discard_mask = !(((1_u16 << bits_to_discard) - 1) as u8);
+            if let Some(byte) = self.buf.last_mut() {
+                *byte &= discard_mask;
+            }
+        }
+
+        self.last = len;
+        if self.last < self.r_pos {
+            self.r_pos = self.last
+        }
+        if self.last < self.w_pos {
+            self.w_pos = self.last
+        }
+    }
+
+    /// Consumes the buffer and returns the inner bytes as a [Vec].
     pub fn into_vec(self) -> Vec<u8> {
         self.buf
     }
@@ -254,7 +280,7 @@ impl BitsBuffer {
 
 #[cfg(test)]
 mod tests {
-    use crate::shared::buffer::BitsBuffer;
+    use crate::shared::buffer::BitsBuf;
 
     macro_rules! assert_buf {
         ($buffer:expr, $slice:expr, $last:expr, $r_pos:expr, $w_pos:expr) => {
@@ -267,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_read_bits() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
         let starting_buf = [0b00001010, 0b10000001, 0b01000011, 0b00100010];
         assert_buf!(buf, starting_buf, 32, 0, 32);
 
@@ -296,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_read_bytes() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
         let starting_buf = [0b00001010, 0b10000001, 0b01000011, 0b00100010];
         assert_buf!(buf, starting_buf, 32, 0, 32);
         assert_eq!(buf.read_bytes::<3>(), Some([0b00001010, 0b10000001, 0b01000011]));
@@ -309,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_read_bytes_vec() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b00001010, 0b10000001, 0b01000011, 0b00100010]);
         let starting_buf = [0b00001010, 0b10000001, 0b01000011, 0b00100010];
         assert_buf!(buf, starting_buf, 32, 0, 32);
         assert_eq!(buf.read_bytes_vec(3), Some(vec![0b00001010, 0b10000001, 0b01000011]));
@@ -320,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_read_pos() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
         assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
 
         assert_eq!(buf.read_bits(8), Some(0b0001_0100));
@@ -342,14 +368,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_read_pos_invalid() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
         assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
         buf.set_read_pos(33);
     }
 
     #[test]
     fn test_write_bits() {
-        let mut buf = BitsBuffer::new();
+        let mut buf = BitsBuf::new();
         assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
 
         buf.write_bits(0b1, 6);
@@ -361,7 +387,7 @@ mod tests {
         buf.write_bits(0b1010_0001, 8);
         assert_buf!(buf, [0b0000_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 26, 0, 26);
 
-        let mut buf = BitsBuffer::new();
+        let mut buf = BitsBuf::new();
         assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
 
         buf.write_u8(0b10000000);
@@ -374,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_write_bytes() {
-        let mut buf = BitsBuffer::new();
+        let mut buf = BitsBuf::new();
         assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
 
         buf.write_bytes(&[0b10000000]);
@@ -387,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_write_pos() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
         assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
 
         buf.set_write_pos(0);
@@ -432,14 +458,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_write_pos_invalid() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
+        let mut buf = BitsBuf::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
         assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
         buf.set_write_pos(33);
     }
 
     #[test]
     fn test_write_and_read() {
-        let mut buf = BitsBuffer::from_raw_bytes(&[]);
+        let mut buf = BitsBuf::from_raw_bytes(&[]);
         assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
 
         buf.write_bits(0b1, 6);
@@ -486,5 +512,37 @@ mod tests {
         assert_buf!(buf, [0b100, 0b0001_0000, 0b0100_0011, 0b0100_0000], 27, 27, 27);
         assert_eq!(buf.read_bits(1), None);
         assert_buf!(buf, [0b100, 0b0001_0000, 0b0100_0011, 0b0100_0000], 27, 27, 27);
+    }
+
+    #[test]
+    fn test_truncate() {
+        let mut buf = BitsBuf::from_raw_bytes(&[0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000]);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
+
+        buf.truncate(32);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
+        buf.truncate(33);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 32, 0, 32);
+        buf.truncate(31);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0100_0000], 31, 0, 31);
+        buf.truncate(25);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000, 0b0000_0000], 25, 0, 25);
+        buf.truncate(24);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000, 0b0110_1000], 24, 0, 24);
+        buf.truncate(13);
+        assert_buf!(buf, [0b0001_0100, 0b0001_1000], 13, 0, 13);
+        buf.truncate(7);
+        assert_buf!(buf, [0b0001_0100], 7, 0, 7);
+        buf.truncate(6);
+        assert_buf!(buf, [0b0001_0100], 6, 0, 6);
+        buf.truncate(5);
+        assert_buf!(buf, [0b0001_0000], 5, 0, 5);
+        buf.truncate(1);
+        assert_buf!(buf, [0b0000_0000], 1, 0, 1);
+        buf.truncate(0);
+        assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
+
+        buf.truncate(20);
+        assert_buf!(buf, [] as [u8; 0], 0, 0, 0);
     }
 }

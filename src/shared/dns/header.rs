@@ -46,7 +46,7 @@ impl Default for Header {
 impl Header {
     /// Decode a dns message [`Header`] from the bytes read from the provided buffer.
     /// Unsupported op/resp codes are detected and an appropriate error is returned.
-    pub fn decode_from_buf(buffer: &mut BitsBuffer) -> Result<Header, ParsingErr> {
+    pub fn decode_from_buf(buffer: &mut BitsBuf) -> Result<Header, ParsingErr> {
         let id = check_end(buffer.read_u16())?;
         let query_resp = check_end(buffer.read_bits(1))? == 1;
         let op_code = decode_op_code(check_end(buffer.read_bits(4))?, true)?;
@@ -80,14 +80,14 @@ impl Header {
     /// Decode a dns message [`Header`] from the passed bytes slice. It is a
     /// wrapper around [Header::decode_from_buf] method which needs a buffer.
     pub fn decode_from_bytes(bytes: &[u8]) -> Result<Header, ParsingErr> {
-        let mut buffer = BitsBuffer::from_raw_bytes(bytes);
+        let mut buffer = BitsBuf::from_raw_bytes(bytes);
         Header::decode_from_buf(&mut buffer)
     }
 
     /// Encode a dns [`Header`] to raw bytes, writing them into the provided
     /// buffer. The function panics if some unsupported op codes are provided
     /// (this helps maintaining invariants about supported features).
-    pub fn encode_to_buf(&self, buffer: &mut BitsBuffer) {
+    pub fn encode_to_buf(&self, buffer: &mut BitsBuf) {
         assert!(self.op_code.is_supported());
         buffer.write_u16(self.id);
         buffer.write_bits(self.query_resp as u8, 1);
