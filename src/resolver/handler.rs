@@ -15,8 +15,8 @@ impl DnsHandler for ResolverHandler {
 fn handle_request<R: DnsRead, W: DnsWrite>(req: R, resp: W, resolver: &Resolver) {
     let dns_request = match req.read() {
         DnsReadResult::FullMessage(req) => req,
-        DnsReadResult::HeaderOnly(hdr, err) => {
-            handle_decode_err(resp, hdr, err);
+        DnsReadResult::HeaderOnly(header, err) => {
+            handle_decode_err(resp, header, err);
             return;
         }
         DnsReadResult::ParseErr(msg_err, hdr_err) => {
