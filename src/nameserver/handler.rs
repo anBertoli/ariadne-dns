@@ -39,7 +39,7 @@ fn handle_dns_request<R: DnsRead, W: DnsWrite>(req: R, resp: W, zones: &ManagedZ
     };
 
     log::info!(
-        "[{}] Start handling request: node '{}', type {:?}",
+        "[{}] Start handling request: node '{}', type {:?}.",
         dns_request.id(),
         node,
         record_type

@@ -62,7 +62,10 @@ where
 {
     let threads_pool = thread_pool::ThreadPool::new(params.threads, "udp");
     let socket = match setup_listening_socket(&params) {
-        Ok(v) => v,
+        Ok(v) => {
+            log::info!("Starting UDP server, address: '{}:{}'.", &params.address, params.port);
+            v
+        }
         Err(err) => {
             log::error!("Cannot setup socket: {}", err);
             return;

@@ -72,7 +72,10 @@ where
     let threads_pool = thread_pool::ThreadPool::new(params.threads, "tcp");
     let listen_address: (&str, u16) = (&params.address, params.port);
     let tcp_socket = match net::TcpListener::bind(listen_address) {
-        Ok(v) => v,
+        Ok(v) => {
+            log::info!("Starting TCP server, address: '{}:{}'.", &params.address, params.port);
+            v
+        }
         Err(err) => {
             log::error!("Cannot setup socket: {}", err);
             return;

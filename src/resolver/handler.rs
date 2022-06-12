@@ -36,7 +36,7 @@ fn handle_request<R: DnsRead, W: DnsWrite>(req: R, resp: W, resolver: &Resolver)
     }
 
     let dns::Question { node, record_type: t, .. } = &dns_request.questions[0];
-    log::info!("[{}] Start handling request: {}, type {:?}", dns_request.id(), node, t);
+    log::info!("[{}] Start handling request: {}, type {:?}.", dns_request.id(), node, t);
     log::debug!("[{}] Complete request: {:?}", dns_request.id(), dns_request);
     handle_query(dns_request, resp, resolver);
 }
