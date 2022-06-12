@@ -20,7 +20,7 @@ impl Question {
     /// buffer. Unsupported types/classes are detected and the function proper
     /// errors in this case. Unknown records types still cause the bytes of that
     /// question to be consumed (and an error is returned as usual).
-    pub fn decode_from_buf(buffer: &mut BitsBuffer) -> Result<Question, ParsingErr> {
+    pub fn decode_from_buf(buffer: &mut BitsBuf) -> Result<Question, ParsingErr> {
         let node = Name::from_bytes(buffer)?;
         let record_type = decode_record_type(buffer)?;
         let class = decode_class(check_end(buffer.read_u16())?)?;
@@ -31,14 +31,14 @@ impl Question {
     /// a wrapper function that allows decoding the question from raw bytes,
     /// opposed to [Question::decode_from_buf] method which needs a buffer.
     pub fn decode_from_bytes(bytes: &[u8]) -> Result<Question, ParsingErr> {
-        let mut buf = BitsBuffer::from_raw_bytes(bytes);
+        let mut buf = BitsBuf::from_raw_bytes(bytes);
         Question::decode_from_buf(&mut buf)
     }
 
     /// Encode a dns message [`Question`] to raw bytes, writing them into the
     /// provided buffer. This function panics if some unsupported class or types
     /// are provided (to maintain invariants about supported features).
-    pub fn encode_to_buf(&self, buffer: &mut BitsBuffer) -> Result<(), ParsingErr> {
+    pub fn encode_to_buf(&self, buffer: &mut BitsBuf) -> Result<(), ParsingErr> {
         assert!(self.record_type.is_supported_for_question());
         assert!(self.class.is_supported());
 
@@ -50,7 +50,7 @@ impl Question {
     }
 }
 
-fn decode_record_type(buffer: &mut BitsBuffer) -> Result<RecordType, ParsingErr> {
+fn decode_record_type(buffer: &mut BitsBuf) -> Result<RecordType, ParsingErr> {
     match RecordType::from_num(check_end(buffer.read_u16())?) {
         Ok(v) if !v.is_supported_for_question() => Err(ParsingErr::UnsupportedType(v)),
         Ok(v) => Ok(v),

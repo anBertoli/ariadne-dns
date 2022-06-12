@@ -1,25 +1,33 @@
+use crate::shared::dns;
 use std::io;
 
-/// A type implementing the [DnsWrite] trait is able to write a dns response
-/// to an underlying destination, usually a OS socket. It's mostly an extension
-/// of the [io::Write] trait. The [len_required](DnsWrite::len_required) method
-/// must be used to determine if if the length of the response (in bytes) must
-/// be written before the actual response. **The trait decouples the request
-/// handling from the server communication mechanism**.  
-pub trait DnsWrite: io::Write {
-    fn len_required(&self) -> bool;
+/// A type implementing the [DnsRead] trait is able to read and parse a dns
+/// response form an underlying source, usually a OS socket. **The trait decouples
+/// the request handling from the server communication mechanism**. Note that
+/// the method takes self, this is intentional: only one request should be read.
+pub trait DnsRead {
+    fn read(self) -> DnsReadResult;
 }
 
-/// A type implementing the [DnsRead] trait is able to read a dns request
-/// from an underlying source, usually a OS socket. It's basically a marker
-/// trait, extending the [io::Read] trait. **The trait decouples the request
-/// handling from the server communication mechanism**.    
-pub trait DnsRead: io::Read {}
+/// Results of reading and parsing a DNS request with a [DnsRead] implementor.
+pub enum DnsReadResult {
+    FullMessage(dns::Message),
+    HeaderOnly(dns::Header, dns::MessageErr),
+    ParseErr(dns::MessageErr, dns::ParsingErr),
+    IoErr(io::Error),
+}
 
-/// A type implementing the [DnsHandler] is able to handle dns requests. It
-/// is able to to do this via its [handle_request](DnsHandler::handle_request)
-/// method, which receives a generic type implementing [DnsRead] (the dns request)
-/// and a generic type implementing [DnsWrite] (the dns response).
+/// A type implementing the [DnsWrite] trait is able to write a dns response
+/// to an underlying destination, usually a OS socket. **The trait decouples
+/// the request handling from the server communication mechanism**. Note that
+/// the method takes self, this is intentional: only one response should be sent.
+pub trait DnsWrite {
+    fn reply(self, response: dns::Message) -> io::Result<()>;
+}
+
+/// A type implementing the [DnsHandler] is able to handle dns requests. The
+/// [handle_request](DnsHandler::handle_request) method receives a generic type
+/// implementing [DnsRead] (the dns request) and a generic type implementing [DnsWrite].
 pub trait DnsHandler: Send + Sync + 'static {
     fn handle_request<R, W>(&self, req: R, resp: W)
     where

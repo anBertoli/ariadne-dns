@@ -92,7 +92,7 @@ impl Record {
     /// proper errors. Unknown records types still cause the bytes of that record
     /// to be consumed (and an error is returned as usual).
     #[rustfmt::skip]
-    pub fn decode_from_buf(buffer: &mut BitsBuffer) -> Result<Record, ParsingErr> {
+    pub fn decode_from_buf(buffer: &mut BitsBuf) -> Result<Record, ParsingErr> {
         let node = Name::from_bytes(buffer)?;
         let rec_type = decode_record_type(buffer)?;
         let class = decode_class(check_end(buffer.read_u16())?)?;
@@ -157,7 +157,7 @@ impl Record {
     /// Wrapper function that allows decoding the record from raw bytes,
     /// opposed to [Record::decode_from_buf] method which needs a buffer.
     pub fn decode_from_bytes(bytes: &[u8]) -> Result<Record, ParsingErr> {
-        let mut buf = BitsBuffer::from_raw_bytes(bytes);
+        let mut buf = BitsBuf::from_raw_bytes(bytes);
         Record::decode_from_buf(&mut buf)
     }
 
@@ -165,7 +165,7 @@ impl Record {
     /// provided buffer. This function panics if some unsupported class or
     /// types are provided (to maintain invariants about supported features).
     #[rustfmt::skip]
-    pub fn encode_to_buf(&self, buffer: &mut BitsBuffer) -> Result<(), ParsingErr> {
+    pub fn encode_to_buf(&self, buffer: &mut BitsBuf) -> Result<(), ParsingErr> {
         let node = self.node();
         let class = self.class();
         let ttl = *self.ttl();
@@ -200,7 +200,7 @@ impl Record {
     }
 }
 
-fn decode_record_type(buffer: &mut BitsBuffer) -> Result<RecordType, ParsingErr> {
+fn decode_record_type(buffer: &mut BitsBuf) -> Result<RecordType, ParsingErr> {
     match RecordType::from_num(check_end(buffer.read_u16())?) {
         Ok(v) if !v.is_supported_for_records() => Err(ParsingErr::UnsupportedType(v)),
         Ok(v) => Ok(v),
@@ -320,7 +320,7 @@ impl Record {
 // data len before the data.
 
 // A records data encoding and decoding functions.
-fn decode_a_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<[u8; 4], ParsingErr> {
+fn decode_a_data(buffer: &mut BitsBuf, data_len: u16) -> Result<[u8; 4], ParsingErr> {
     if data_len != 4 {
         Err(ParsingErr::DataLenMismatch)
     } else {
@@ -328,13 +328,13 @@ fn decode_a_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<[u8; 4], Pars
     }
 }
 
-fn encode_a_data(buffer: &mut BitsBuffer, ip: &[u8; 4]) {
+fn encode_a_data(buffer: &mut BitsBuf, ip: &[u8; 4]) {
     buffer.write_u16(4);
     buffer.write_bytes(ip);
 }
 
 // NS records data encoding and decoding functions.
-fn decode_ns_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, ParsingErr> {
+fn decode_ns_data(buffer: &mut BitsBuf, data_len: u16) -> Result<Name, ParsingErr> {
     let before = buffer.read_pos();
     let nameserver = Name::from_bytes(buffer)?;
     let after = buffer.read_pos();
@@ -345,7 +345,7 @@ fn decode_ns_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, Parsin
     }
 }
 
-fn encode_ns_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), ParsingErr> {
+fn encode_ns_data(buffer: &mut BitsBuf, name: &Name) -> Result<(), ParsingErr> {
     let domain_name = name.to_bytes();
     buffer.write_u16(domain_name.len() as u16);
     buffer.write_bytes(&domain_name);
@@ -353,7 +353,7 @@ fn encode_ns_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), ParsingErr
 }
 
 // CNAME records data encoding and decoding functions.
-fn decode_cname_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, ParsingErr> {
+fn decode_cname_data(buffer: &mut BitsBuf, data_len: u16) -> Result<Name, ParsingErr> {
     let before = buffer.read_pos();
     let alias = Name::from_bytes(buffer)?;
     let after = buffer.read_pos();
@@ -364,7 +364,7 @@ fn decode_cname_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, Par
     }
 }
 
-fn encode_cname_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), ParsingErr> {
+fn encode_cname_data(buffer: &mut BitsBuf, name: &Name) -> Result<(), ParsingErr> {
     let domain_name = name.to_bytes();
     buffer.write_u16(domain_name.len() as u16);
     buffer.write_bytes(&domain_name);
@@ -374,7 +374,7 @@ fn encode_cname_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), Parsing
 // SOA records data encoding and decoding functions.
 type SoaData = (Name, Name, u32, u32, u32, u32, u32);
 
-fn decode_soa_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<SoaData, ParsingErr> {
+fn decode_soa_data(buffer: &mut BitsBuf, data_len: u16) -> Result<SoaData, ParsingErr> {
     let before = buffer.read_pos();
     let mname = Name::from_bytes(buffer)?;
     let rname = Name::from_bytes(buffer)?;
@@ -391,7 +391,7 @@ fn decode_soa_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<SoaData, Pa
     }
 }
 
-fn encode_soa_data(buffer: &mut BitsBuffer, data: (&Name, &Name, u32, u32, u32, u32, u32)) -> Result<(), ParsingErr> {
+fn encode_soa_data(buffer: &mut BitsBuf, data: (&Name, &Name, u32, u32, u32, u32, u32)) -> Result<(), ParsingErr> {
     let auth_ns_name = &data.0.to_bytes();
     let mail_name = &data.1.to_bytes();
     buffer.write_u16((auth_ns_name.len() + mail_name.len() + 20) as u16);
@@ -408,7 +408,7 @@ fn encode_soa_data(buffer: &mut BitsBuffer, data: (&Name, &Name, u32, u32, u32, 
 // WKS records data encoding and decoding functions.
 type WksData = ([u8; 4], u8, Vec<u32>);
 
-fn decode_wks_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<WksData, ParsingErr> {
+fn decode_wks_data(buffer: &mut BitsBuf, data_len: u16) -> Result<WksData, ParsingErr> {
     let address = buffer.read_bytes().ok_or(ParsingErr::BytesEnd)?;
     let protocol = buffer.read_u8().ok_or(ParsingErr::BytesEnd)?;
     let ports = if data_len > 5 {
@@ -421,7 +421,7 @@ fn decode_wks_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<WksData, Pa
     Ok((address, protocol, ports))
 }
 
-fn encode_wks_data(buffer: &mut BitsBuffer, address: &[u8; 4], protocol: u8, ports: &[u32]) {
+fn encode_wks_data(buffer: &mut BitsBuf, address: &[u8; 4], protocol: u8, ports: &[u32]) {
     buffer.write_u16((5 + ports.len()) as u16);
     buffer.write_bytes(address);
     buffer.write_u8(protocol);
@@ -446,7 +446,7 @@ fn parse_wks_ports(ports_bytes: &[u8]) -> Vec<u32> {
 }
 
 // PTR records data encoding and decoding functions.
-fn decode_ptr_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, ParsingErr> {
+fn decode_ptr_data(buffer: &mut BitsBuf, data_len: u16) -> Result<Name, ParsingErr> {
     let before = buffer.read_pos();
     let name = Name::from_bytes(buffer)?;
     let after = buffer.read_pos();
@@ -457,7 +457,7 @@ fn decode_ptr_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Name, Parsi
     }
 }
 
-fn encode_ptr_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), ParsingErr> {
+fn encode_ptr_data(buffer: &mut BitsBuf, name: &Name) -> Result<(), ParsingErr> {
     let domain_name = name.to_bytes();
     buffer.write_u16(domain_name.len() as u16);
     buffer.write_bytes(&domain_name);
@@ -465,7 +465,7 @@ fn encode_ptr_data(buffer: &mut BitsBuffer, name: &Name) -> Result<(), ParsingEr
 }
 
 // HINFO records data encoding and decoding functions.
-fn decode_hinfo_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<(String, String), ParsingErr> {
+fn decode_hinfo_data(buffer: &mut BitsBuf, data_len: u16) -> Result<(String, String), ParsingErr> {
     let before = buffer.read_pos();
     let cpu = decode_character_string(buffer)?;
     let os = decode_character_string(buffer)?;
@@ -477,7 +477,7 @@ fn decode_hinfo_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<(String, 
     }
 }
 
-fn encode_hinfo_data(buffer: &mut BitsBuffer, cpu: &str, os: &str) -> Result<(), ParsingErr> {
+fn encode_hinfo_data(buffer: &mut BitsBuf, cpu: &str, os: &str) -> Result<(), ParsingErr> {
     let cpu = encode_character_string(cpu)?;
     let os = encode_character_string(os)?;
     buffer.write_u16((cpu.len() + os.len()) as u16);
@@ -487,7 +487,7 @@ fn encode_hinfo_data(buffer: &mut BitsBuffer, cpu: &str, os: &str) -> Result<(),
 }
 
 // MX records data encoding and decoding functions.
-fn decode_mx_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<(u16, Name), ParsingErr> {
+fn decode_mx_data(buffer: &mut BitsBuf, data_len: u16) -> Result<(u16, Name), ParsingErr> {
     let before = buffer.read_pos();
     let preference = buffer.read_u16().ok_or(ParsingErr::BytesEnd)?;
     let exchange = Name::from_bytes(buffer)?;
@@ -499,7 +499,7 @@ fn decode_mx_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<(u16, Name),
     }
 }
 
-fn encode_mx_data(buffer: &mut BitsBuffer, priority: u16, name: &Name) -> Result<(), ParsingErr> {
+fn encode_mx_data(buffer: &mut BitsBuf, priority: u16, name: &Name) -> Result<(), ParsingErr> {
     let domain_name = name.to_bytes();
     buffer.write_u16(2 + domain_name.len() as u16);
     buffer.write_u16(priority);
@@ -508,13 +508,13 @@ fn encode_mx_data(buffer: &mut BitsBuffer, priority: u16, name: &Name) -> Result
 }
 
 // TXT records data encoding and decoding functions.
-fn decode_txt_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Vec<String>, ParsingErr> {
+fn decode_txt_data(buffer: &mut BitsBuf, data_len: u16) -> Result<Vec<String>, ParsingErr> {
     let mut strings = vec![];
     let mut read: u16 = 0;
     loop {
         let pos = buffer.read_pos();
         let len = buffer.read_u8().ok_or(ParsingErr::BytesEnd)? as u16;
-        buffer.set_read_pos(pos - 1).unwrap();
+        buffer.set_read_pos(pos - 1);
         if read + len + 1 > data_len {
             return Err(ParsingErr::DataLenMismatch);
         }
@@ -527,7 +527,7 @@ fn decode_txt_data(buffer: &mut BitsBuffer, data_len: u16) -> Result<Vec<String>
     Ok(strings)
 }
 
-fn encode_txt_data(buffer: &mut BitsBuffer, strings: &Vec<String>) -> Result<(), ParsingErr> {
+fn encode_txt_data(buffer: &mut BitsBuf, strings: &Vec<String>) -> Result<(), ParsingErr> {
     let mut buf = vec![];
     let mut len = 0;
     for str in strings {

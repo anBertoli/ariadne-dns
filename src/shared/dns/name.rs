@@ -37,7 +37,7 @@ impl Name {
     /// Creates a [`Name`] parsing its binary representation (a series of labels,
     /// divided by a length byte). There's a max number of jumps allowed (for
     /// security reasons).
-    pub fn from_bytes(buffer: &mut BitsBuffer) -> Result<Self, NameErr> {
+    pub fn from_bytes(buffer: &mut BitsBuf) -> Result<Self, NameErr> {
         let mut name_bytes: Vec<u8> = Vec::with_capacity(100);
         let mut pos_after_jump: usize = 0;
         let mut n_jumps: u16 = 0;
@@ -56,7 +56,7 @@ impl Name {
                     let second_byte = check_end(buffer.read_u8())? as u16;
                     let jump_pos = (((len_byte as u16) << 8) | second_byte) & Self::POINTER_MASK;
                     let jump_pos = jump_pos * 8;
-                    check_jump(buffer.set_read_pos(jump_pos as usize))?;
+                    buffer.set_read_pos(jump_pos as usize);
                     n_jumps += 1;
                 }
                 // Normal label type. Could be found either after
@@ -86,7 +86,7 @@ impl Name {
 
         // Re-set the position if we followed a pointer.
         if pos_after_jump > 0 {
-            check_jump(buffer.set_read_pos(pos_after_jump))?;
+            buffer.set_read_pos(pos_after_jump);
         }
 
         match str::from_utf8(&name_bytes) {
@@ -165,13 +165,6 @@ fn check_end<T>(opt: Option<T>) -> Result<T, NameErr> {
     match opt {
         None => Err(NameErr::BytesEnd),
         Some(v) => Ok(v),
-    }
-}
-
-fn check_jump<T, E>(opt: Result<T, E>) -> Result<T, NameErr> {
-    match opt {
-        Err(_) => Err(NameErr::PointerOutOfBonds),
-        Ok(v) => Ok(v),
     }
 }
 
