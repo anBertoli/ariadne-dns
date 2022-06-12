@@ -267,13 +267,13 @@ fn build_dns_request(ns_request: &NsRequest) -> dns::Message {
     }
 }
 
-fn send_udp_packet(request: &NsRequest, bytes: &[u8]) -> io::Result<([u8; 512], usize)> {
+fn send_udp_packet(request: &NsRequest, bytes: &[u8]) -> io::Result<([u8; dns::MAX_UDP_LEN_BYTES], usize)> {
     let addr = *request.nameserver.addrs().first().unwrap();
     let udp_socket = net::UdpSocket::bind("0.0.0.0:0")?;
     udp_socket.set_write_timeout(Some(request.w_timeout))?;
     udp_socket.set_read_timeout(Some(request.r_timeout))?;
     udp_socket.send_to(&bytes, (addr, 53))?;
-    let mut buffer = [0_u8; 512];
+    let mut buffer = [0_u8; dns::MAX_UDP_LEN_BYTES];
     let (n_recv, _) = udp_socket.recv_from(&mut buffer)?;
     Ok((buffer, n_recv))
 }

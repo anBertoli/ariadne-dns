@@ -1,6 +1,6 @@
 use crate::shared::net::traits::*;
-use crate::shared::{log, thread_pool};
-use std::io::Read;
+use crate::shared::{dns, log, thread_pool};
+use std::io::{Read, Write};
 use std::sync::{atomic, Arc};
 use std::{io, net, time};
 
@@ -8,33 +8,44 @@ use std::{io, net, time};
 /// by reading directly from the bytes read form the TCP request. The
 /// amount of bytes is determined by the two first bytes of the TCP
 /// message.
-pub struct TcpRequest<'a>(io::Cursor<&'a [u8]>);
+pub struct TcpRequest(net::TcpStream);
 
-impl<'a> io::Read for TcpRequest<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+impl DnsRead for TcpRequest {
+    fn read(mut self) -> DnsReadResult {
+        let mut buf: [u8; 2] = [0; 2];
+        if let Err(err) = self.0.read_exact(&mut buf) {
+            return DnsReadResult::IoErr(err);
+        };
+        let req_len = ((buf[0] as u16) << 8) | (buf[1] as u16);
+        let mut buf = vec![0_u8; req_len as usize];
+        if let Err(err) = self.0.read_exact(&mut buf) {
+            return DnsReadResult::IoErr(err);
+        };
+
+        let req = dns::Message::decode_from_bytes(&buf);
+        let err = match req {
+            Ok(req) => return DnsReadResult::FullMessage(req),
+            Err(err) => err,
+        };
+        match dns::Header::decode_from_bytes(&buf) {
+            Ok(v) => DnsReadResult::HeaderOnly(v, err),
+            Err(err_h) => DnsReadResult::ParseErr(err, err_h),
+        }
     }
 }
-
-impl<'a> DnsRead for TcpRequest<'a> {}
 
 /// A wrapper around the an established TCP connection. Implements [DnsWrite],
 /// writing directly into the underlying connection. It is required to write
 /// the length of the message itself before writing the actual response.
 pub struct TcpResponse(net::TcpStream);
 
-impl io::Write for TcpResponse {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
-}
-
 impl DnsWrite for TcpResponse {
-    fn len_required(&self) -> bool {
-        true
+    fn reply(mut self, response: dns::Message) -> io::Result<()> {
+        let resp_bytes = response.encode_to_bytes().unwrap();
+        let resp_len = resp_bytes.len() as u16;
+        let buf = [(resp_len >> 8) as u8, (resp_len) as u8];
+        self.0.write_all(&buf)?;
+        self.0.write_all(&resp_bytes)
     }
 }
 
@@ -96,30 +107,11 @@ where
                 return;
             };
 
-            let req_bytes = match read_request(&mut tcp_stream) {
-                Ok(v) => v,
-                Err(err) => {
-                    log::warn!("Reading request: {}", err);
-                    return;
-                }
-            };
-
-            let request = TcpRequest(io::Cursor::new(&req_bytes));
+            let request = TcpRequest(tcp_stream.try_clone().unwrap());
             let response = TcpResponse(tcp_stream);
             handler.handle_request(request, response);
         })
     }
-}
-
-// When using TCP the first two bytes are extra and indicate how
-// long is the dns message. We read exactly that amount of bytes.
-fn read_request(tcp_stream: &mut net::TcpStream) -> Result<Vec<u8>, io::Error> {
-    let mut buf: [u8; 2] = [0; 2];
-    tcp_stream.read_exact(&mut buf)?;
-    let req_len = ((buf[0] as u16) << 8) | (buf[1] as u16);
-    let mut buf = vec![0_u8; req_len as usize];
-    tcp_stream.read(&mut buf)?;
-    Ok(buf)
 }
 
 fn setup_connection(

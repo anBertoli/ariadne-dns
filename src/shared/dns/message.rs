@@ -5,7 +5,7 @@ use crate::shared::dns::header::*;
 use crate::shared::dns::questions::*;
 use crate::shared::dns::records::*;
 
-const MAX_UDP_LEN: usize = 512;
+pub const MAX_UDP_LEN_BYTES: usize = 512;
 
 /// Represents a complete dns message. Contains the [`Header`], which fields
 /// must be concordant with the [`Question`]s and [`Record`]s carried in the other
@@ -137,7 +137,7 @@ impl Message {
                 Err(err) => return Err(MessageErr::QuestionErr(i, err)),
                 Ok(v) => v,
             };
-            if buffer.write_pos() > MAX_UDP_LEN {
+            if buffer.write_pos() / 8 > MAX_UDP_LEN_BYTES {
                 buffer.set_write_pos(0);
                 header.truncated = true;
                 header.encode_to_buf(&mut buffer);
@@ -154,7 +154,7 @@ impl Message {
                 Err(err) => return Err(MessageErr::AnswerErr(i, err)),
                 Ok(v) => v,
             };
-            if buffer.write_pos() > MAX_UDP_LEN {
+            if buffer.write_pos() / 8 > MAX_UDP_LEN_BYTES {
                 buffer.set_write_pos(0);
                 header.truncated = true;
                 header.encode_to_buf(&mut buffer);
@@ -171,7 +171,7 @@ impl Message {
                 Err(err) => return Err(MessageErr::AuthorityErr(i, err)),
                 Ok(v) => v,
             }
-            if buffer.write_pos() > MAX_UDP_LEN {
+            if buffer.write_pos() / 8 > MAX_UDP_LEN_BYTES {
                 buffer.set_write_pos(0);
                 header.truncated = true;
                 header.encode_to_buf(&mut buffer);
@@ -188,7 +188,7 @@ impl Message {
                 Err(err) => return Err(MessageErr::AdditionalErr(i, err)),
                 Ok(v) => v,
             };
-            if buffer.write_pos() > MAX_UDP_LEN {
+            if buffer.write_pos() / 8 > MAX_UDP_LEN_BYTES {
                 buffer.set_write_pos(0);
                 header.truncated = true;
                 header.encode_to_buf(&mut buffer);

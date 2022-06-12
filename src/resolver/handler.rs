@@ -12,39 +12,33 @@ impl DnsHandler for ResolverHandler {
     }
 }
 
-fn handle_request<R: DnsRead, W: DnsWrite>(mut req: R, resp: W, resolver: &Resolver) {
-    let mut request_bytes = [0; 2048];
-    let request_bytes = match req.read(&mut request_bytes) {
-        Ok(0) => {
-            log::warn!("Read request of 0 bytes.");
+fn handle_request<R: DnsRead, W: DnsWrite>(req: R, resp: W, resolver: &Resolver) {
+    let dns_request = match req.read() {
+        DnsReadResult::FullMessage(req) => req,
+        DnsReadResult::HeaderOnly(hdr, err) => {
+            handle_decode_err(resp, hdr, err);
             return;
         }
-        Ok(n_read) => &request_bytes[..n_read],
-        Err(err) => {
-            log::error!("Reading request: {}.", err);
+        DnsReadResult::ParseErr(msg_err, hdr_err) => {
+            log::warn!("Decoding request: {:?}, decoding header: {:?}", msg_err, hdr_err);
+            return;
+        }
+        DnsReadResult::IoErr(err) => {
+            log::warn!("IO error: {:?}", err);
             return;
         }
     };
 
-    let request = dns::Message::decode_from_bytes(request_bytes);
-    let request = match request {
-        Ok(req) => req,
-        Err(err) => {
-            log::warn!("Decoding request: {:?}", err);
-            handle_decode_err(resp, request_bytes, &err);
-            return;
-        }
-    };
-    if let Err(err) = validate_dns_request(&request) {
-        log::warn!("[{}] Response malformed: {}.", request.id(), err);
-        handle_err(resp, &request, dns::RespCode::FormErr);
+    if let Err(err) = validate_dns_request(&dns_request) {
+        log::warn!("[{}] Response malformed: {}.", dns_request.id(), err);
+        handle_err(resp, &dns_request, dns::RespCode::FormErr);
         return;
     }
 
-    let dns::Question { node, record_type: t, .. } = &request.questions[0];
-    log::info!("[{}] Start handling request: {}, type {:?}", request.id(), node, t);
-    log::debug!("[{}] Complete request: {:?}", request.id(), request);
-    handle_query(request, resp, resolver);
+    let dns::Question { node, record_type: t, .. } = &dns_request.questions[0];
+    log::info!("[{}] Start handling request: {}, type {:?}", dns_request.id(), node, t);
+    log::debug!("[{}] Complete request: {:?}", dns_request.id(), dns_request);
+    handle_query(dns_request, resp, resolver);
 }
 
 /// Resolve the dns query fetching the records of the given name and type. The
@@ -92,14 +86,7 @@ fn handle_query<W: DnsWrite>(req: dns::Message, resp: W, resolver: &Resolver) {
 /// Handle decoding errors, either malformed messages or unsupported features.
 /// If we cannot decode the header we cannot compose a valid response header,
 /// so simply drop the request in these cases.
-fn handle_decode_err<W: DnsWrite>(resp: W, request_bytes: &[u8], msg_err: &dns::MessageErr) {
-    let req_header = match dns::Header::decode_from_bytes(request_bytes) {
-        Ok(v) => v,
-        Err(err) => {
-            log::warn!("Cannot decode header: {:?}", err);
-            return;
-        }
-    };
+fn handle_decode_err<W: DnsWrite>(resp: W, req_header: dns::Header, msg_err: dns::MessageErr) {
     let parsing_err = msg_err.inner_err();
     let resp_code = match parsing_err {
         dns::ParsingErr::UnsupportedOpCode(_) => dns::RespCode::NotImp,
@@ -137,31 +124,19 @@ fn handle_err<W: DnsWrite>(resp: W, dns_req: &dns::Message, resp_code: dns::Resp
     reply(resp, dns_response);
 }
 
-/// Reply to the client and log the outcome. If the generic [`DnsWrite`] needs
-/// the length of the response at the beginning is it written as expected.
-fn reply<W: DnsWrite>(mut resp: W, dns_response: dns::Message) {
-    log::debug!("[{}] Complete response: {:?}", dns_response.id(), dns_response);
-    let response_bytes = dns_response.encode_to_bytes().unwrap();
-    let response_code = dns_response.header.resp_code;
+/// Reply to the client and log the outcome.
+fn reply<W: DnsWrite>(resp: W, dns_response: dns::Message) {
     let response_id = dns_response.id();
-
-    if resp.len_required() {
-        let resp_len = response_bytes.len() as u16;
-        let buf = [(resp_len >> 8) as u8, (resp_len) as u8];
-        if let Err(err) = resp.write_all(&buf) {
-            log::error!("[{}] Error writing len: {}", response_id, err);
-            return;
-        };
-    }
-
-    match resp.write_all(&response_bytes) {
+    let response_code = dns_response.header.resp_code;
+    log::debug!("[{}] Complete response: {:?}", response_id, dns_response);
+    match resp.reply(dns_response) {
         Ok(_) => log::info!("[{}] Request served [{:?}].", response_id, response_code),
         Err(err) => log::error!("[{}] Error replying: {}", response_id, err),
     };
 }
 
-// Creates a proper header from the request header, suitable to be used in
-// the corresponding response. The passed code is used in the resp header.
+/// Creates a proper header from the request header, suitable to be used in
+/// the corresponding response. The passed code is used in the resp header.
 fn resp_header_from_req_header(req_header: &dns::Header, resp_code: dns::RespCode) -> dns::Header {
     dns::Header {
         query_resp: true,
@@ -173,7 +148,7 @@ fn resp_header_from_req_header(req_header: &dns::Header, resp_code: dns::RespCod
     }
 }
 
-// Validate a client dns request against some minimal requirements.
+/// Validate a client dns request against some minimal requirements.
 fn validate_dns_request(dns_req: &dns::Message) -> Result<(), String> {
     if !dns_req.header.is_request() {
         return Err(format!("resp flag set in query"));

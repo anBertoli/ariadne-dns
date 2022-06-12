@@ -1,19 +1,25 @@
 use crate::shared::net::traits::*;
-use crate::shared::{log, thread_pool};
+use crate::shared::{dns, log, thread_pool};
 use std::sync::{atomic, Arc};
 use std::{io, net, time};
 
 /// The request coming from resolver UDP clients. Implements [DnsRead]
 /// by reading directly from the bytes read form the UDP request.
-pub struct UdpRequest<'a>(io::Cursor<&'a [u8]>);
+pub struct UdpRequest<'a>(&'a [u8]);
 
-impl<'a> io::Read for UdpRequest<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+impl<'a> DnsRead for UdpRequest<'a> {
+    fn read(self) -> DnsReadResult {
+        let req = dns::Message::decode_from_bytes(self.0);
+        let err = match req {
+            Ok(req) => return DnsReadResult::FullMessage(req),
+            Err(err) => err,
+        };
+        match dns::Header::decode_from_bytes(self.0) {
+            Ok(v) => DnsReadResult::HeaderOnly(v, err),
+            Err(err_h) => DnsReadResult::ParseErr(err, err_h),
+        }
     }
 }
-
-impl<'a> DnsRead for UdpRequest<'a> {}
 
 /// A wrapper around the socket and the address to be used to respond
 /// to a resolver UDP request. Implements [DnsWrite], writing directly
@@ -23,18 +29,15 @@ pub struct UdpResponse {
     addr: net::SocketAddr,
 }
 
-impl io::Write for UdpResponse {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.socket.send_to(buf, self.addr)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
 impl DnsWrite for UdpResponse {
-    fn len_required(&self) -> bool {
-        false
+    fn reply(self, response: dns::Message) -> io::Result<()> {
+        let resp_bytes = response.encode_to_bytes_trunc().unwrap();
+        let mut written = 0;
+        while written < resp_bytes.len() {
+            let n = self.socket.send_to(&resp_bytes[written..], self.addr)?;
+            written += n;
+        }
+        Ok(())
     }
 }
 
@@ -69,7 +72,7 @@ where
     // Loop receiving UDP messages. When a new request arrives, read
     // it and delegate request handling to a thread in the pool.
     loop {
-        let mut buffer = [0; 2048];
+        let mut buffer = [0; dns::MAX_UDP_LEN_BYTES];
         let (n_read, src_addr) = match socket.recv_from(&mut buffer) {
             Ok(read_data) => read_data,
             Err(err) => {
@@ -96,7 +99,7 @@ where
         // response objects and call the handler function to serve the request.
         let handler = Arc::clone(&handler);
         threads_pool.execute(move || {
-            let request = UdpRequest(io::Cursor::new(&buffer[0..n_read]));
+            let request = UdpRequest(&buffer[0..n_read]);
             let response = UdpResponse {
                 socket: socket_clone,
                 addr: src_addr,

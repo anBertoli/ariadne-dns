@@ -1,6 +1,6 @@
 use crate::nameserver::zones::*;
-use crate::shared::net::*;
 use crate::shared::dns::Question;
+use crate::shared::net::*;
 use crate::shared::{dns, log};
 
 /// The nameserver handler able to serve dns requests via its [`DnsHandler`] implementation.
@@ -12,46 +12,41 @@ impl DnsHandler for NameserverHandler {
     }
 }
 
-fn handle_dns_request<R: DnsRead, W: DnsWrite>(mut req: R, resp: W, zones: &ManagedZone) {
-    let mut request_bytes = [0; 2048];
-    let request_bytes = match req.read(&mut request_bytes) {
-        Ok(0) => {
-            log::warn!("Read request of 0 bytes.");
+fn handle_dns_request<R: DnsRead, W: DnsWrite>(req: R, resp: W, zones: &ManagedZone) {
+    let dns_request = match req.read() {
+        DnsReadResult::FullMessage(req) => req,
+        DnsReadResult::HeaderOnly(hdr, err) => {
+            handle_decode_err(resp, hdr, err);
             return;
         }
-        Ok(n_read) => &request_bytes[..n_read],
-        Err(err) => {
-            log::error!("Reading request: {}.", err);
+        DnsReadResult::ParseErr(msg_err, hdr_err) => {
+            log::warn!("Decoding request: {:?}, decoding header: {:?}", msg_err, hdr_err);
+            return;
+        }
+        DnsReadResult::IoErr(err) => {
+            log::warn!("IO error: {:?}", err);
             return;
         }
     };
 
-    let request = dns::Message::decode_from_bytes(request_bytes);
-    let request = match request {
-        Ok(req) => req,
-        Err(err) => {
-            log::warn!("Decoding request: {:?}", err);
-            handle_decode_err(resp, request_bytes, &err);
-            return;
-        }
-    };
-    let dns::Question { node, record_type: t, .. } = match validate_dns_request(&request) {
+    let dns::Question { node, record_type, .. } = match validate_dns_request(&dns_request) {
         Ok(question) => question,
-        Err(err) =>{
-            log::warn!("[{}] Response malformed: {}.", request.id(), err);
-            handle_err(resp, &request, dns::RespCode::FormErr);
+        Err(err) => {
+            log::warn!("[{}] Response malformed: {}.", dns_request.id(), err);
+            handle_err(resp, &dns_request, dns::RespCode::FormErr);
             return;
         }
     };
 
     log::info!(
         "[{}] Start handling request: node '{}', type {:?}",
-        request.id(),
+        dns_request.id(),
         node,
-        t
+        record_type
     );
-    log::debug!("[{}] Complete request: {:?}", request.id(), request);
-    handle_query(request, resp, zones);
+
+    log::debug!("[{}] Complete request: {:?}", dns_request.id(), dns_request);
+    handle_query(dns_request, resp, zones);
 }
 
 /// Resolve the dns query. First of all the records are checked to see if they are
@@ -64,7 +59,7 @@ fn handle_query<W: DnsWrite>(request: dns::Message, resp: W, zones: &ManagedZone
         return;
     }
 
-    // Check if the records are in subzone, if yes delegate to it.
+    // Check if records are in subzone, if yes delegate to it.
     for subzone in &zones.sub_zones {
         if node.is_in_zone(&subzone.zone) {
             handle_subzone(resp, request, subzone, zones);
@@ -161,14 +156,7 @@ fn search_a_additionals_for_subzone_ns<'a>(
 /// Handle decoding errors, either malformed messages or unsupported features.
 /// If we cannot decode the header we cannot compose a valid response header,
 /// so simply drop the request in these cases.
-fn handle_decode_err<W: DnsWrite>(resp: W, request_bytes: &[u8], msg_err: &dns::MessageErr) {
-    let req_header = match dns::Header::decode_from_bytes(request_bytes) {
-        Ok(v) => v,
-        Err(err) => {
-            log::warn!("Cannot decode header: {:?}", err);
-            return;
-        }
-    };
+fn handle_decode_err<W: DnsWrite>(resp: W, req_header: dns::Header, msg_err: dns::MessageErr) {
     let parsing_err = msg_err.inner_err();
     let resp_code = match parsing_err {
         dns::ParsingErr::UnsupportedOpCode(_) => dns::RespCode::NotImp,
@@ -228,24 +216,12 @@ fn handle_err<W: DnsWrite>(resp: W, dns_req: &dns::Message, resp_code: dns::Resp
     reply(resp, dns_resp);
 }
 
-/// Reply to the client and log the outcome. If the generic [`DnsWrite`] needs
-/// the length of the response at the beginning is it written as expected.
-fn reply<W: DnsWrite>(mut resp: W, dns_response: dns::Message) {
-    log::debug!("[{}] Complete response: {:?}", dns_response.id(), dns_response);
-    let response_bytes = dns_response.encode_to_bytes().unwrap();
-    let response_code = dns_response.header.resp_code;
+/// Reply to the client and log the outcome.
+fn reply<W: DnsWrite>(resp: W, dns_response: dns::Message) {
     let response_id = dns_response.id();
-
-    if resp.len_required() {
-        let resp_len = response_bytes.len() as u16;
-        let buf = [(resp_len >> 8) as u8, (resp_len) as u8];
-        if let Err(err) = resp.write_all(&buf) {
-            log::error!("[{}] Error writing len: {}", response_id, err);
-            return;
-        };
-    }
-
-    match resp.write_all(&response_bytes) {
+    let response_code = dns_response.header.resp_code;
+    log::debug!("[{}] Complete response: {:?}", response_id, dns_response);
+    match resp.reply(dns_response) {
         Ok(_) => log::info!("[{}] Request served [{:?}].", response_id, response_code),
         Err(err) => log::error!("[{}] Error replying: {}", response_id, err),
     };
@@ -281,6 +257,6 @@ fn validate_dns_request(dns_req: &dns::Message) -> Result<&Question, String> {
 
     match dns_req.questions.as_slice() {
         [question] => Ok(question),
-        _ => Err(format!("invalid # of questions: {:?}", dns_req.header.questions_count))
+        _ => Err(format!("invalid # of questions: {:?}", dns_req.header.questions_count)),
     }
 }
