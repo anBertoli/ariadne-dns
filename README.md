@@ -1,7 +1,7 @@
 # Ariadne DNS
 [![Tests](https://github.com/anBertoli/ariadne-dns/actions/workflows/tests.yml/badge.svg)](https://github.com/anBertoli/ariadne-dns/actions/workflows/tests.yml)
 
-_Ariadne DNS_ it's a compact Rust implementation of a recursive DNS resolver and DNS nameserver,
+_Ariadne DNS_ is a compact Rust implementation of a recursive DNS resolver and DNS nameserver,
 implementing core RFCs 1034 and 1035. Two separate binaries are present for the two services.
 
 The project is not (yet) intended to be used in production environments, beside testing
