@@ -1,7 +1,7 @@
 use crate::nameserver::zones::*;
+use crate::shared::dns;
 use crate::shared::dns::Question;
 use crate::shared::net::*;
-use crate::shared::{dns, log};
 
 /// The nameserver handler able to serve dns requests via its [`DnsHandler`] implementation.
 pub struct NameserverHandler(pub ManagedZone);

@@ -3,7 +3,7 @@ use crate::nameserver::zones::parser::*;
 use crate::nameserver::zones::parser_auth::*;
 use crate::nameserver::zones::tokens::*;
 use crate::nameserver::zones::utils::*;
-use crate::shared::{dns, log};
+use crate::shared::dns;
 
 #[derive(Debug)]
 struct SubParsingState<'a> {

@@ -2,7 +2,7 @@ use crate::nameserver::zones::errors::*;
 use crate::nameserver::zones::parser::*;
 use crate::nameserver::zones::tokens::*;
 use crate::nameserver::zones::utils::*;
-use crate::shared::{dns, log};
+use crate::shared::dns;
 use std::net;
 use std::str::FromStr;
 
