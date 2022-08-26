@@ -1,5 +1,5 @@
 {
-  "log_level": "Debug",
+  "log_level": "Info",
   "udp_server": {
     "address": "127.0.0.1",
     "port": 4000,

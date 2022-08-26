@@ -1,12 +1,12 @@
 use ariadne_dns::resolver::*;
-use ariadne_dns::shared::log::{init_log, set_max_level};
+use ariadne_dns::shared::logs;
 use ariadne_dns::shared::net::*;
 use colored::Colorize;
 use std::sync::Arc;
 use std::{env, process, time};
 
 fn main() {
-    init_log();
+    logs::init_log();
 
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -16,7 +16,7 @@ fn main() {
 
     let conf = match conf::Conf::from_file(&args[1]) {
         Ok(conf) => {
-            set_max_level(conf.log_level);
+            logs::set_max_level(conf.log_level);
             log::info!("Parsed configuration: {:?}.", conf);
             conf
         }
@@ -75,7 +75,9 @@ fn main() {
 fn print_usage() {
     log::error!(
         "One argument should be provided when starting the resolver: the path of the configuration file.
-Usage: {} {}",
+
+Usage: {} {}
+",
         "path/to/resolver/binary".bold(),
         "path/to/config/file".bold().bright_green()
     )
