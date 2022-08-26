@@ -1,14 +1,17 @@
 use ariadne_dns::nameserver::conf::ZoneConf;
 use ariadne_dns::nameserver::*;
+use ariadne_dns::shared::dns;
+use ariadne_dns::shared::logs;
 use ariadne_dns::shared::net::{start_servers, TcpParams, UdpParams};
-use ariadne_dns::shared::{dns, log};
+use colored::Colorize;
 use std::sync::Arc;
 use std::{env, process, time};
 
 fn main() {
+    logs::init_log();
+
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        log::init_log(log::LogLevel::Debug);
         print_usage();
         process::exit(1);
     }
@@ -16,12 +19,11 @@ fn main() {
     // Process configuration file.
     let conf = match conf::Conf::from_file(&args[1]) {
         Ok(conf) => {
-            log::init_log(conf.log_level);
+            logs::set_max_level(conf.log_level);
             log::info!("Configuration parsed: {:?}.", conf);
             conf
         }
         Err(err) => {
-            log::init_log(log::LogLevel::Debug);
             log::error!("Parsing configuration file: {}", err);
             process::exit(1);
         }
@@ -80,7 +82,9 @@ fn process_zones_confs(zone_conf: &ZoneConf) -> ParsingParams {
 fn print_usage() {
     log::error!(
         "One argument should be provided when starting the resolver: the path of the configuration file.
-    Usage: {} {}",
+
+    Usage: {} {}
+    ",
         "path/to/resolver/binary".bold(),
         "path/to/config/file".bold().bright_green()
     )

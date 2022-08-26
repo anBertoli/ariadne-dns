@@ -1,4 +1,4 @@
-use crate::shared::{dns, log};
+use crate::shared::dns;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{fs, net};
@@ -6,7 +6,7 @@ use std::{fs, net};
 /// Configuration values obtained parsing the configuration file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Conf {
-    pub log_level: log::LogLevel,
+    pub log_level: log::Level,
     pub udp_server: UdpServerConf,
     pub tcp_server: TcpServerConf,
     pub zone: ZoneConf,

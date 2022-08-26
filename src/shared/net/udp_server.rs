@@ -1,5 +1,5 @@
 use crate::shared::net::traits::*;
-use crate::shared::{dns, log, thread_pool};
+use crate::shared::{dns, thread_pool};
 use std::sync::{atomic, Arc};
 use std::{io, net, time};
 

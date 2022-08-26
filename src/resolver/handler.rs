@@ -1,6 +1,5 @@
 use crate::resolver::*;
 use crate::shared::dns;
-use crate::shared::log;
 use crate::shared::net::*;
 
 /// The resolver handler able to serve dns requests via its [`DnsHandler`] implementation.
