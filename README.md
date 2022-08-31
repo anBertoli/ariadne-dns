@@ -17,6 +17,8 @@ Table of contents:
 - [dev mode](<#Dev-mode>)
 - [notes](<#Notes>)
 
+⚠️ Please note that the project is exploratory and not intended for production use (yet).
+
 ## Nameserver
 
 A nameserver is queried by DNS clients to retrieve records included in zones on which it is authoritative.
@@ -226,3 +228,17 @@ hexdump -C tmp/response_packet_bin.txt > tmp/response_packet_hex.txt
 Comments and pull requests are welcome and encouraged.
 
 Author: Andrea Bertoli, andrea.bertpp@gmail.com
+
+Lines of code (cloc output):
+
+<!--- generated via 'cloc . --md' -->
+Language|files|blank|comment|code
+:-------|-------:|-------:|-------:|-------:
+Rust|43|571|601|5052
+XML|4|0|0|389
+Markdown|2|56|0|190
+JSON|2|0|0|67
+TOML|2|2|1|14
+YAML|1|5|0|13
+**Total**|54|634|602|5725
+ 
